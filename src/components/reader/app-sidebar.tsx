@@ -1,17 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { BookOpenText, Lock } from "lucide-react";
+import { BookOpenText, ChevronRight } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
@@ -19,7 +17,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
-import type { BookData } from "@/lib/types";
+import type { BookData, BookEntry } from "@/lib/types";
 
 /** Орнамент «геометрический ромб» — системный знак дизайн-системы. */
 export function Ornament({ className }: { className?: string }) {
@@ -39,6 +37,32 @@ export function Ornament({ className }: { className?: string }) {
   );
 }
 
+/** Цвет бейджа по маркеру автора («Раздел», «Польза», «Правило»…). */
+const MARKER_CLASS: Record<string, string> = {
+  "Раздел": "bg-primary/12 text-primary",
+  "Очень полезный раздел": "bg-primary/12 text-primary",
+  "Польза": "bg-emerald-600/12 text-emerald-700 dark:text-emerald-400",
+  "Важная польза": "bg-emerald-600/12 text-emerald-700 dark:text-emerald-400",
+  "Правило": "bg-sky-600/12 text-sky-700 dark:text-sky-400",
+  "Важное правило": "bg-sky-600/12 text-sky-700 dark:text-sky-400",
+  "Полезное правило": "bg-sky-600/12 text-sky-700 dark:text-sky-400",
+  "Замечание": "bg-amber-600/15 text-amber-700 dark:text-amber-400",
+  "Важное замечание": "bg-amber-600/15 text-amber-700 dark:text-amber-400",
+  "Наставление": "bg-violet-600/12 text-violet-700 dark:text-violet-400",
+  "Изречение": "bg-muted text-muted-foreground",
+  "Введение": "bg-muted text-muted-foreground",
+};
+
+function MarkerBadge({ marker }: { marker: string }) {
+  return (
+    <span
+      className={`inline-flex flex-none items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${MARKER_CLASS[marker] ?? "bg-muted text-muted-foreground"}`}
+    >
+      {marker}
+    </span>
+  );
+}
+
 export function AppSidebar({
   book,
   activeSection,
@@ -47,14 +71,111 @@ export function AppSidebar({
   activeSection: string;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
-  const active = book.chapters.find((c) => !c.wip) ?? book.chapters[0];
+
+  /* По умолчанию раскрыта только часть с готовой главой. */
+  const readyPartId = React.useMemo(
+    () => book.parts.find((p) => p.entries.some((e) => e.chapterId))?.id,
+    [book],
+  );
+  const [openParts, setOpenParts] = React.useState<Set<string>>(
+    () => new Set(readyPartId ? [readyPartId] : []),
+  );
 
   const scrollTo = (id: string) => {
     if (isMobile) setOpenMobile(false);
     const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const togglePart = (id: string) => {
+    setOpenParts((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const openReadyEntry = () => {
+    if (isMobile) setOpenMobile(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const renderEntry = (entry: BookEntry) => {
+    const chapter = entry.chapterId
+      ? book.chapters.find((c) => c.id === entry.chapterId)
+      : undefined;
+
+    if (chapter) {
+      return (
+        <SidebarMenuItem key={entry.id}>
+          <button
+            type="button"
+            onClick={openReadyEntry}
+            className="flex w-full items-start gap-2 rounded-md border border-primary/30 bg-primary/10 px-2 py-2 text-left transition-colors hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            <BookOpenText className="mt-0.5 h-4 w-4 flex-none text-primary" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="line-clamp-2 block text-[12.5px] font-bold leading-snug text-primary">
+                {entry.title}
+              </span>
+              <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <MarkerBadge marker={entry.marker} />
+                <span className="font-mono text-[10px] text-muted-foreground">
+                  с. {entry.page}
+                </span>
+                <span className="rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                  разобрано
+                </span>
+              </span>
+            </span>
+          </button>
+          {chapter.sections.length > 0 && (
+            <SidebarMenuSub className="group-data-[collapsible=icon]:hidden">
+              {chapter.sections.map((s) => (
+                <SidebarMenuSubItem key={s.id}>
+                  <SidebarMenuSubButton asChild isActive={activeSection === s.id}>
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={() => scrollTo(s.id)}
+                    >
+                      <span className="flex-none font-mono text-[10px] leading-none text-muted-foreground">
+                        {s.num}
+                      </span>
+                      <span className="truncate">{s.title}</span>
+                    </button>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
+            </SidebarMenuSub>
+          )}
+        </SidebarMenuItem>
+      );
     }
+
+    return (
+      <SidebarMenuItem key={entry.id}>
+        <div
+          aria-disabled="true"
+          title={`${entry.marker}: ${entry.title} (с. ${entry.page}) — раздел ещё не разобран`}
+          className="rounded-md px-2 py-2"
+        >
+          <div className="flex items-center gap-1.5">
+            <MarkerBadge marker={entry.marker} />
+            <span className="ml-auto flex-none font-mono text-[10px] text-muted-foreground/60">
+              с. {entry.page}
+            </span>
+          </div>
+          <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-muted-foreground">
+            {entry.title}
+          </p>
+        </div>
+      </SidebarMenuItem>
+    );
   };
 
   return (
@@ -79,70 +200,53 @@ export function AppSidebar({
         </p>
       </SidebarHeader>
 
-      {/* Разделы книги */}
+      {/* Оглавление издания: части → записи */}
       <SidebarContent className="nice-scroll">
-        <SidebarGroup>
-          <SidebarGroupLabel>Разделы</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {/* Активный раздел */}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive
-                  tooltip={active.title}
-                  onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                >
-                  <BookOpenText className="text-primary" />
-                  <span className="truncate">
-                    {active.num}. {active.title}
-                  </span>
-                </SidebarMenuButton>
-                {active.sections.length > 0 ? (
-                  <SidebarMenuSub className="group-data-[collapsible=icon]:hidden">
-                    {active.sections.map((s) => (
-                      <SidebarMenuSubItem key={s.id}>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={activeSection === s.id}
-                        >
-                          <button
-                            type="button"
-                            className="w-full text-left"
-                            onClick={() => scrollTo(s.id)}
-                          >
-                            <span className="flex-none font-mono text-[10px] leading-none text-muted-foreground">
-                              {s.num}
-                            </span>
-                            <span className="truncate">{s.title}</span>
-                          </button>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                ) : null}
-              </SidebarMenuItem>
-
-              {/* Разделы в подготовке */}
-              {book.chapters
-                .filter((c) => c.wip)
-                .map((c) => (
-                  <SidebarMenuItem key={c.id}>
-                    <SidebarMenuButton disabled tooltip={`${c.num}. ${c.title}`}>
-                      <Lock />
-                      <span className="truncate">{c.num}. {c.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {book.parts.map((part) => {
+          const isOpen = openParts.has(part.id);
+          return (
+            <SidebarGroup key={part.id} className="group-data-[collapsible=icon]:hidden py-1.5 border-b border-border/40 last:border-b-0">
+              <button
+                type="button"
+                onClick={() => togglePart(part.id)}
+                aria-expanded={isOpen}
+                aria-label={`Часть ${part.num}: ${part.label} — ${part.entries.length} записей`}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary"
+              >
+                <span className="flex-none w-7 text-center font-serif text-[12px] font-bold text-primary/75">
+                  {part.num}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
+                  {part.label}
+                </span>
+                <span className="flex-none text-[10px] font-semibold text-muted-foreground/50">
+                  {part.entries.length}
+                </span>
+                <ChevronRight
+                  className={`flex-none h-3.5 w-3.5 text-muted-foreground/60 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+                  aria-hidden="true"
+                />
+              </button>
+              {isOpen && (
+                <SidebarGroupContent>
+                  <SidebarMenu>{part.entries.map(renderEntry)}</SidebarMenu>
+                </SidebarGroupContent>
+              )}
+            </SidebarGroup>
+          );
+        })}
       </SidebarContent>
 
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="rounded-lg border bg-muted/40 px-3 py-2.5 mx-2 mb-2">
-          <p className="text-[11px] font-bold">MVP · три слоя</p>
+          <p className="text-[11px] font-bold">Оглавление издания</p>
           <p className="text-[10.5px] text-muted-foreground leading-snug mt-0.5">
-            Книга → Разбор → Атлас. Переключатель — в шапке.
+            «Умма», 2013 · 480 с. Автор не делил книгу на главы — тематические
+            части составлены для навигации.
+          </p>
+          <p className="text-[10.5px] text-muted-foreground leading-snug mt-1">
+            Разобран раздел «Золотая середина» (с. 310–315), остальные — по
+            мере работы.
           </p>
         </div>
       </SidebarFooter>

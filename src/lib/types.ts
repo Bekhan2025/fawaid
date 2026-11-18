@@ -116,6 +116,35 @@ export interface Chapter {
   sections: Section[];
 }
 
+/**
+ * Запись оглавления издания: одна «польза»/«раздел»/«правило» книги.
+ * Пока запись не разобрана, она ведёт себя как заглушка в навигации.
+ */
+export interface BookEntry {
+  /** e310 — по номеру страницы издания. */
+  id: string;
+  /** Страница издания (Умма, 2013). */
+  page: number;
+  /** Маркер автора: «Раздел», «Польза», «Правило», «Замечание»… */
+  marker: string;
+  /** Заголовок из оглавления издания. */
+  title: string;
+  /** Ссылка на готовую главу с контентом. */
+  chapterId?: string;
+}
+
+/**
+ * Тематическая часть навигации. Сам автор книгу на главы не делил —
+ * это редакторская группировка записей оглавления для читалки.
+ */
+export interface BookPart {
+  id: string;
+  /** Римская цифра части. */
+  num: string;
+  label: string;
+  entries: BookEntry[];
+}
+
 export interface BookMeta {
   titleRu: string;
   titleAr: string;
@@ -128,5 +157,8 @@ export interface BookData {
   meta: BookMeta;
   /** Словарь терминов для бейджей [[term:id]]. */
   terms: TermDef[];
+  /** Навигация: тематические части → записи оглавления издания. */
+  parts: BookPart[];
+  /** Готовые главы с контентом (привязаны к записям через chapterId). */
   chapters: Chapter[];
 }
