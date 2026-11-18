@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Manrope, Playfair_Display, Amiri } from "next/font/google";
+import { Manrope, Playfair_Display, Amiri, PT_Serif } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/reader/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,6 +13,14 @@ const manrope = Manrope({
 const playfair = Playfair_Display({
   variable: "--font-serif",
   subsets: ["latin", "cyrillic"],
+  display: "swap",
+});
+
+const ptSerif = PT_Serif({
+  variable: "--font-book",
+  subsets: ["latin", "cyrillic"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -40,7 +48,7 @@ export default function RootLayout({
   return (
     <html lang="ru" suppressHydrationWarning>
       <body
-        className={`${manrope.variable} ${playfair.variable} ${amiri.variable} antialiased bg-background text-foreground`}
+        className={`${manrope.variable} ${playfair.variable} ${ptSerif.variable} ${amiri.variable} antialiased bg-background text-foreground`}
       >
         <ThemeProvider>
           {children}

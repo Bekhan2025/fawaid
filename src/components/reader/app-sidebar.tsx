@@ -11,9 +11,6 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar";
@@ -65,26 +62,52 @@ function MarkerBadge({ marker }: { marker: string }) {
 
 export function AppSidebar({
   book,
-  activeSection,
+  activeEntryId,
+  onSelectEntry,
 }: {
   book: BookData;
-  activeSection: string;
+  activeEntryId: string;
+  onSelectEntry: (id: string) => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
 
-  /* По умолчанию раскрыта только часть с готовой главой. */
-  const readyPartId = React.useMemo(
-    () => book.parts.find((p) => p.entries.some((e) => e.chapterId))?.id,
-    [book],
+  /* По умолчанию раскрыта часть с активной записью. */
+  const activePartId = React.useMemo(
+    () => book.parts.find((p) => p.entries.some((e) => e.id === activeEntryId))?.id,
+    [book, activeEntryId],
   );
   const [openParts, setOpenParts] = React.useState<Set<string>>(
-    () => new Set(readyPartId ? [readyPartId] : []),
+    () => new Set(activePartId ? [activePartId] : []),
   );
+  React.useEffect(() => {
+    if (activePartId) {
+      setOpenParts((prev) => {
+        if (prev.has(activePartId)) return prev;
+        const next = new Set(prev);
+        next.add(activePartId);
+        return next;
+      });
+      // подскроллить группу и активную запись (внутри скролл-контейнера сайдбара)
+      const t1 = window.setTimeout(() => {
+        document
+          .getElementById(`part-btn-${activePartId}`)
+          ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }, 60);
+      const t2 = window.setTimeout(() => {
+        document
+          .getElementById(`entry-btn-active`)
+          ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }, 240);
+      return () => {
+        window.clearTimeout(t1);
+        window.clearTimeout(t2);
+      };
+    }
+  }, [activePartId]);
 
-  const scrollTo = (id: string) => {
+  const select = (id: string) => {
+    onSelectEntry(id);
     if (isMobile) setOpenMobile(false);
-    const el = document.getElementById(id);
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const togglePart = (id: string) => {
@@ -99,81 +122,55 @@ export function AppSidebar({
     });
   };
 
-  const openReadyEntry = () => {
-    if (isMobile) setOpenMobile(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   const renderEntry = (entry: BookEntry) => {
-    const chapter = entry.chapterId
-      ? book.chapters.find((c) => c.id === entry.chapterId)
-      : undefined;
-
-    if (chapter) {
-      return (
-        <SidebarMenuItem key={entry.id}>
-          <button
-            type="button"
-            onClick={openReadyEntry}
-            className="flex w-full items-start gap-2 rounded-md border border-primary/30 bg-primary/10 px-2 py-2 text-left transition-colors hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary"
-          >
-            <BookOpenText className="mt-0.5 h-4 w-4 flex-none text-primary" aria-hidden="true" />
-            <span className="min-w-0 flex-1">
-              <span className="line-clamp-2 block text-[12.5px] font-bold leading-snug text-primary">
-                {entry.title}
-              </span>
-              <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <MarkerBadge marker={entry.marker} />
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  с. {entry.page}
-                </span>
-                <span className="rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-                  разобрано
-                </span>
-              </span>
-            </span>
-          </button>
-          {chapter.sections.length > 0 && (
-            <SidebarMenuSub className="group-data-[collapsible=icon]:hidden">
-              {chapter.sections.map((s) => (
-                <SidebarMenuSubItem key={s.id}>
-                  <SidebarMenuSubButton asChild isActive={activeSection === s.id}>
-                    <button
-                      type="button"
-                      className="w-full text-left"
-                      onClick={() => scrollTo(s.id)}
-                    >
-                      <span className="flex-none font-mono text-[10px] leading-none text-muted-foreground">
-                        {s.num}
-                      </span>
-                      <span className="truncate">{s.title}</span>
-                    </button>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              ))}
-            </SidebarMenuSub>
-          )}
-        </SidebarMenuItem>
-      );
-    }
+    const active = entry.id === activeEntryId;
+    const hasChapter = Boolean(entry.chapterId);
 
     return (
       <SidebarMenuItem key={entry.id}>
-        <div
-          aria-disabled="true"
-          title={`${entry.marker}: ${entry.title} (с. ${entry.page}) — раздел ещё не разобран`}
-          className="rounded-md px-2 py-2"
+        <button
+          type="button"
+          id={active ? `entry-btn-active` : undefined}
+          onClick={() => select(entry.id)}
+          aria-current={active ? "true" : undefined}
+          title={`${entry.marker}: ${entry.title} (с. ${entry.page})`}
+          className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+            active
+              ? "border border-primary/40 bg-primary/10"
+              : "border border-transparent hover:bg-muted/60"
+          }`}
         >
-          <div className="flex items-center gap-1.5">
-            <MarkerBadge marker={entry.marker} />
-            <span className="ml-auto flex-none font-mono text-[10px] text-muted-foreground/60">
-              с. {entry.page}
+          {hasChapter ? (
+            <BookOpenText className="mt-0.5 h-4 w-4 flex-none text-primary" aria-hidden="true" />
+          ) : (
+            <span className="mt-0.5 flex-none h-4 w-4 grid place-items-center">
+              <span
+                className={`h-1.5 w-1.5 rotate-45 rounded-[1px] ${active ? "bg-primary" : "bg-muted-foreground/40"}`}
+                aria-hidden="true"
+              />
             </span>
-          </div>
-          <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-muted-foreground">
-            {entry.title}
-          </p>
-        </div>
+          )}
+          <span className="min-w-0 flex-1">
+            <span
+              className={`line-clamp-2 block text-[12.5px] leading-snug ${
+                active ? "font-bold text-primary" : "font-medium text-foreground/85"
+              }`}
+            >
+              {entry.title}
+            </span>
+            <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <MarkerBadge marker={entry.marker} />
+              <span className="font-mono text-[10px] text-muted-foreground">
+                с. {entry.page}
+              </span>
+              {hasChapter ? (
+                <span className="rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+                  разбор готов
+                </span>
+              ) : null}
+            </span>
+          </span>
+        </button>
       </SidebarMenuItem>
     );
   };
@@ -208,6 +205,7 @@ export function AppSidebar({
             <SidebarGroup key={part.id} className="group-data-[collapsible=icon]:hidden py-1.5 border-b border-border/40 last:border-b-0">
               <button
                 type="button"
+                id={`part-btn-${part.id}`}
                 onClick={() => togglePart(part.id)}
                 aria-expanded={isOpen}
                 aria-label={`Часть ${part.num}: ${part.label} — ${part.entries.length} записей`}
@@ -239,13 +237,14 @@ export function AppSidebar({
 
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="rounded-lg border bg-muted/40 px-3 py-2.5 mx-2 mb-2">
-          <p className="text-[11px] font-bold">Оглавление издания</p>
+          <p className="text-[11px] font-bold">Текст издания</p>
           <p className="text-[10.5px] text-muted-foreground leading-snug mt-0.5">
-            «Умма», 2013 · 480 с. Автор не делил книгу на главы — тематические
+            «Умма», 2013 · 480 с. Слой «Книга» — полный текст по всем 136
+            записям оглавления; автор не делил книгу на главы, тематические
             части составлены для навигации.
           </p>
           <p className="text-[10.5px] text-muted-foreground leading-snug mt-1">
-            Разобран раздел «Золотая середина» (с. 310–315), остальные — по
+            Разбор и атлас пока готовы для «Золотой середины» — остальные по
             мере работы.
           </p>
         </div>

@@ -1,45 +1,101 @@
 "use client";
 
 import * as React from "react";
-import { BookOpen, ChevronDown, Info, Layers } from "lucide-react";
+import { BookOpen, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import type { LayerId, Section, TermDef } from "@/lib/types";
+import type { BookTextEntry, LayerId, Section, TermDef } from "@/lib/types";
 import { renderInline } from "@/components/reader/inline";
 import { AtlasRenderer } from "@/components/reader/atlas";
 
-/* ============ Слой «Книга» ============ */
+/* ============ Инлайн-фрагменты книжного текста ============ */
 
-export function BookBlock({
-  section,
-  terms,
-}: {
-  section: Section;
-  terms: Record<string, TermDef>;
-}) {
-  if (!section.book) return null;
+/** Разбивает строку на части по маркерам сносок {{n}} и символу ﷺ. */
+function renderBookInline(
+  text: string,
+  footnotes: BookTextEntry["footnotes"],
+  fnRef: (n: number) => React.ReactNode,
+): React.ReactNode[] {
+  const nodes: React.ReactNode[] = [];
+  const re = /\{\{(\d+)\}\}|\uFDFA/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let key = 0;
+  while ((m = re.exec(text))) {
+    if (m.index > last) nodes.push(text.slice(last, m.index));
+    if (m[1]) {
+      const n = Number(m[1]);
+      nodes.push(
+        <React.Fragment key={key++}>{fnRef(n)}</React.Fragment>,
+      );
+    } else {
+      nodes.push(
+        <span key={key++} className="salla" lang="ar" aria-label="да благословит его Аллах и приветствует">
+          ﷺ
+        </span>,
+      );
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+/* ============ Слой «Книга»: текст издания ============ */
+
+export function BookTextView({ entry }: { entry: BookTextEntry }) {
+  const fnRef = (n: number) => <span className="book-fnref">{n}</span>;
+
+  // красная строка: у первого абзаца её нет (как в книге после заголовка),
+  // и после центрированных/стихотворных вставок
+  const paras: React.ReactNode[] = [];
+  let flatNext = true;
+  const items = entry.paragraphs;
+  for (let i = 0; i < items.length; i++) {
+    const p = items[i];
+    if (typeof p === "string") {
+      const cls = flatNext ? "bp-flat" : "bp";
+      flatNext = false;
+      paras.push(
+        <p key={i} className={cls}>
+          {renderBookInline(p, entry.footnotes, fnRef)}
+        </p>,
+      );
+      continue;
+    }
+    if ("verse" in p) {
+      flatNext = true;
+      paras.push(
+        <blockquote key={i} className="bp-verse">
+          {p.verse.map((line, j) => (
+            <span key={j}>{line}</span>
+          ))}
+        </blockquote>,
+      );
+      continue;
+    }
+    flatNext = true;
+    paras.push(
+      <p key={i} className="bp-center">
+        {p.center}
+      </p>,
+    );
+  }
+
   return (
-    <div className="animate-rise">
-      {section.book.label ? (
-        <p className="text-xs uppercase tracking-[0.12em] font-bold text-muted-foreground mb-4">
-          {section.book.label}
-        </p>
-      ) : null}
-      <div className="book-serif text-[17px] md:text-[18.5px] leading-[1.85] space-y-5 text-foreground/90">
-        {section.book.paragraphs.map((p, i) => (
-          <p
-            key={i}
-            className={i === 0 ? "first-letter:text-[3.2em] first-letter:font-bold first-letter:text-primary first-letter:mr-2 first-letter:float-left first-letter:leading-[0.85] first-letter:mt-1" : ""}
-          >
-            {renderInline(p, terms)}
-          </p>
-        ))}
-      </div>
+    <div className="book-page animate-rise">
+      {paras}
+      {entry.footnotes.length > 0 && (
+        <div className="book-footnotes" aria-label="Сноски издания">
+          <ol>
+            {entry.footnotes.map((f) => (
+              <li key={f.n} id={`fn-${f.n}`}>
+                <span className="fn-n">{f.n}</span>
+                {renderBookInline(f.text, entry.footnotes, fnRef)}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
@@ -91,60 +147,41 @@ export function RazborBlock({
 function NoteChip({ children }: { children: React.ReactNode }) {
   return (
     <div className="inline-flex items-center gap-2 rounded-full border bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground">
-      <Info className="w-3.5 h-3.5 flex-none" aria-hidden="true" />
+      <BookOpen className="w-3.5 h-3.5 flex-none" aria-hidden="true" />
       <span>{children}</span>
     </div>
   );
 }
 
-/** Разворачивающийся оригинал: «свериться с книгой». */
-function BookPeek({ section, terms }: { section: Section; terms: Record<string, TermDef> }) {
-  if (!section.book) return null;
-  return (
-    <Collapsible className="mt-6">
-      <CollapsibleTrigger className="group inline-flex items-center gap-2 text-[13px] font-semibold text-primary hover:text-primary/85 transition-colors">
-        <BookOpen className="w-4 h-4" aria-hidden="true" />
-        Свериться с книгой — оригинальный текст
-        <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" />
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="mt-3 rounded-xl border bg-muted/40 px-5 py-4">
-          <p className="text-[10px] uppercase tracking-[0.12em] font-bold text-muted-foreground mb-2.5">
-            Слой «Книга» · пересказ
-          </p>
-          <div className="book-serif text-[15.5px] leading-[1.8] text-foreground/80 space-y-3">
-            {section.book.paragraphs.map((p, i) => (
-              <p key={i}>{renderInline(p, terms)}</p>
-            ))}
-          </div>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
-/** Уведомление в слое «Книга» для разделов-дополнений. */
-function AdditionNotice({ onSwitchLayer }: { onSwitchLayer: (l: LayerId) => void }) {
+/** Заглушка для слоёв «Разбор»/«Атлас» у ещё не разобранных записей. */
+export function EntryPlaceholder({
+  layer,
+  onSwitchLayer,
+}: {
+  layer: "razbor" | "atlas";
+  onSwitchLayer: (l: LayerId) => void;
+}) {
   return (
     <div className="addition-box p-5 animate-rise">
       <div className="flex items-start gap-3">
         <Layers className="w-5 h-5 mt-0.5 flex-none text-accent-foreground" aria-hidden="true" />
         <div className="flex-1">
           <Badge variant="outline" className="bg-card/60 border-accent-foreground/40 text-accent-foreground font-bold">
-            Дополнение составителя
+            {layer === "razbor" ? "Разбор в подготовке" : "Атлас в подготовке"}
           </Badge>
           <p className="text-[14px] leading-relaxed mt-2.5 text-foreground/85">
-            В книге «аль-Фаваид» такого раздела нет: это дополнение составителя — перенос смыслов
-            главы в контекст XXI века. В слое «Книга» показан только оригинальный материал.
+            Текст книги для этой записи уже здесь — переключитесь на слой
+            «Книга». Тематический разбор и визуальные схемы появятся
+            по мере работы над главами.
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-3.5 border-accent-foreground/40 text-accent-foreground hover:bg-accent-foreground/10"
-            onClick={() => onSwitchLayer("razbor")}
+          <button
+            type="button"
+            onClick={() => onSwitchLayer("book")}
+            className="mt-3.5 inline-flex items-center gap-2 rounded-md border border-accent-foreground/40 px-3 py-1.5 text-[13px] font-semibold text-accent-foreground transition-colors hover:bg-accent-foreground/10"
           >
-            Показать разбор
-          </Button>
+            <BookOpen className="w-4 h-4" aria-hidden="true" />
+            Читать текст книги
+          </button>
         </div>
       </div>
     </div>
@@ -166,74 +203,45 @@ function AdditionWrapper({ children }: { children: React.ReactNode }) {
   );
 }
 
-/* ============ Секция целиком ============ */
+/* ============ Секция разбора (для готовых глав) ============ */
 
 export function SectionView({
   section,
   layer,
   terms,
-  onSwitchLayer,
 }: {
   section: Section;
-  layer: LayerId;
+  layer: "razbor" | "atlas";
   terms: Record<string, TermDef>;
-  onSwitchLayer: (l: LayerId) => void;
 }) {
-  const { book, razbor, atlas } = section;
+  const { razbor, atlas } = section;
 
   let body: React.ReactNode = null;
-
-  if (layer === "book") {
-    if (book) {
-      body = <BookBlock section={section} terms={terms} />;
-    } else if (section.additionOnly) {
-      body = <AdditionNotice onSwitchLayer={onSwitchLayer} />;
-    } else if (razbor) {
-      body = (
-        <div className="space-y-4">
-          <NoteChip>Текст книги для этого фрагмента готовится — показан разбор</NoteChip>
-          <RazborBlock section={section} terms={terms} />
-        </div>
-      );
-    }
-  } else if (layer === "razbor") {
-    if (razbor) {
-      body = <RazborBlock section={section} terms={terms} />;
-    } else if (book) {
-      body = (
-        <div className="space-y-4">
-          <NoteChip>Разбор для этого фрагмента готовится — показан текст книги</NoteChip>
-          <BookBlock section={section} terms={terms} />
-        </div>
-      );
-    }
-  } else if (layer === "atlas") {
-    if (atlas) {
-      body = <AtlasRenderer atlas={atlas} terms={terms} />;
-    } else if (razbor) {
-      body = (
-        <div className="space-y-4">
-          <NoteChip>Визуальная форма для этого фрагмента готовится — показан разбор</NoteChip>
-          <RazborBlock section={section} terms={terms} />
-        </div>
-      );
-    } else if (book) {
-      body = (
-        <div className="space-y-4">
-          <NoteChip>Визуальная форма готовится — показан текст книги</NoteChip>
-          <BookBlock section={section} terms={terms} />
-        </div>
-      );
-    }
+  if (layer === "razbor") {
+    body = razbor ? (
+      <RazborBlock section={section} terms={terms} />
+    ) : (
+      <NoteChip>Разбор этого раздела готовится</NoteChip>
+    );
+  } else {
+    body = atlas ? (
+      <AtlasRenderer atlas={atlas} terms={terms} />
+    ) : razbor ? (
+      <div className="space-y-4">
+        <NoteChip>Визуальная форма для этого раздела готовится — показан разбор</NoteChip>
+        <RazborBlock section={section} terms={terms} />
+      </div>
+    ) : (
+      <NoteChip>Визуальная форма готовится</NoteChip>
+    );
   }
 
-  // Дополнения-разделы в слоях «Разбор»/«Атлас» оборачиваются рамкой
-  if (section.additionOnly && layer !== "book" && body) {
+  if (section.additionOnly) {
     body = <AdditionWrapper>{body}</AdditionWrapper>;
   }
 
   return (
-    <section id={section.id} className="scroll-mt-24 py-10 md:py-12 border-t first:border-t-0" aria-labelledby={`${section.id}-title`}>
+    <section id={section.id} className="scroll-mt-24 py-8 md:py-10 border-t first:border-t-0 first:pt-0" aria-labelledby={`${section.id}-title`}>
       <header className="mb-6 max-w-3xl">
         <div className="flex items-center gap-3 mb-2.5">
           <span className="inline-grid place-items-center min-w-9 h-9 px-2.5 rounded-full bg-primary/12 text-primary font-extrabold text-[13px] tracking-wide">
@@ -252,7 +260,7 @@ export function SectionView({
             </span>
           )}
         </div>
-        <h2 id={`${section.id}-title`} className="book-serif text-[26px] md:text-[30px] font-bold leading-tight">
+        <h2 id={`${section.id}-title`} className="book-serif text-[24px] md:text-[28px] font-bold leading-tight">
           {section.title}
         </h2>
         {section.lead ? (
@@ -261,10 +269,6 @@ export function SectionView({
       </header>
 
       {body}
-
-      {layer !== "book" && section.book && body && !section.additionOnly ? (
-        <BookPeek section={section} terms={terms} />
-      ) : null}
     </section>
   );
 }

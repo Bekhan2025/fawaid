@@ -1,16 +1,42 @@
-import type { BookData } from "@/lib/types";
+import type { BookData, BookTextEntry } from "@/lib/types";
 import { TOC_PARTS } from "@/content/toc";
+import p0 from "@/content/book-text/p0.json";
+import p1 from "@/content/book-text/p1.json";
+import p2 from "@/content/book-text/p2.json";
+import p3 from "@/content/book-text/p3.json";
+import p4 from "@/content/book-text/p4.json";
+import p5 from "@/content/book-text/p5.json";
+import p6 from "@/content/book-text/p6.json";
+import p7 from "@/content/book-text/p7.json";
+import p8 from "@/content/book-text/p8.json";
+import p9 from "@/content/book-text/p9.json";
+import p10 from "@/content/book-text/p10.json";
+import p11 from "@/content/book-text/p11.json";
 
 /**
- * Контент MVP: книга «аль-Фаваид» Ибн Каййима аль-Джаузиййи,
- * раздел «Золотая середина» (изд. Умма, 2013, с. 310–315).
+ * Контент читалки: книга «аль-Фаваид» Ибн Каййима аль-Джаузиййи
+ * (изд. Умма, 2013, 480 с.).
  *
- * Навигация по книге — TOC_PARTS (оглавление издания, 136 записей),
- * готовые главы связаны с записями через chapterId.
- *
- * Слой «Книга» — адаптированный пересказ смыслов (не дословные цитаты).
- * Дополнения составителя (разделы 03, 04) помечены additionOnly и бейджами.
+ * Навигация по книге — TOC_PARTS (оглавление издания, 136 записей).
+ * Слой «Книга» — полный текст издания (BOOK_TEXT, сгенерирован
+ * scripts/extract_book.py из PDF издания).
+ * Слой «Разбор»/«Атлас» пока подготовлены для одной записи (e310,
+ * «Золотая середина») — главы связаны с записями через chapterId;
+ * дополнения составителя помечены additionOnly и бейджами.
  */
+
+/** Тексты издания по записям оглавления. */
+export const BOOK_TEXT: Record<string, BookTextEntry> = Object.fromEntries(
+  [
+    p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11,
+  ].flat().map((e) => [e.id, e as BookTextEntry]),
+);
+
+/** Все записи книги в порядке оглавления (для навигации «вперёд/назад»). */
+export const BOOK_ENTRIES_ORDERED: BookTextEntry[] = [
+  p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11,
+].flat() as BookTextEntry[];
+
 export const BOOK: BookData = {
   meta: {
     titleRu: "аль-Фаваид",

@@ -1,25 +1,33 @@
 "use client";
 
 import * as React from "react";
-import { BookOpen, Compass, ListTree } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Compass, ListTree } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppSidebar, Ornament } from "@/components/reader/app-sidebar";
-import { SectionView } from "@/components/reader/blocks";
+import { BookTextView, EntryPlaceholder, SectionView } from "@/components/reader/blocks";
 import { ThemeToggle } from "@/components/reader/theme-toggle";
-import { renderInline } from "@/components/reader/inline";
-import type { BookData, LayerId, TermDef } from "@/lib/types";
+import { BOOK_ENTRIES_ORDERED, BOOK_TEXT } from "@/content/book";
+import type { BookData, BookTextEntry, LayerId, TermDef } from "@/lib/types";
 
 const LAYERS: { id: LayerId; label: string; icon: typeof BookOpen; hint: string }[] = [
-  { id: "book", label: "Книга", icon: BookOpen, hint: "оригинальный текст (пересказ)" },
+  { id: "book", label: "Книга", icon: BookOpen, hint: "текст издания «Умма», 2013" },
   { id: "razbor", label: "Разбор", icon: ListTree, hint: "тезисы и ключевые мысли" },
   { id: "atlas", label: "Атлас", icon: Compass, hint: "шкалы, схемы, карточки" },
 ];
 
+/** Запись, открытая по умолчанию: единственная с готовым разбором. */
+const DEFAULT_ENTRY = "e310";
+
+/** Порядок записей для чтения — по страницам издания (как лежит книга). */
+const READING_ORDER: BookTextEntry[] = [...BOOK_ENTRIES_ORDERED].sort(
+  (a, b) => a.page - b.page,
+);
+
 export function ReaderApp({ book }: { book: BookData }) {
-  const [layer, setLayer] = React.useState<LayerId>("razbor");
-  const [activeSection, setActiveSection] = React.useState<string>("");
+  const [entryId, setEntryId] = React.useState<string>(DEFAULT_ENTRY);
+  const [layer, setLayer] = React.useState<LayerId>("book");
   const [progress, setProgress] = React.useState(0);
 
   const terms = React.useMemo<Record<string, TermDef>>(
@@ -27,7 +35,24 @@ export function ReaderApp({ book }: { book: BookData }) {
     [book],
   );
 
-  const chapter = React.useMemo(() => book.chapters.find((c) => !c.wip) ?? book.chapters[0], [book]);
+  const entry = BOOK_TEXT[entryId] ?? READING_ORDER[0];
+  const idx = READING_ORDER.findIndex((e) => e.id === entry.id);
+  const prevEntry = idx > 0 ? READING_ORDER[idx - 1] : undefined;
+  const nextEntry = idx < READING_ORDER.length - 1 ? READING_ORDER[idx + 1] : undefined;
+  const chapter = entry.chapterId
+    ? book.chapters.find((c) => c.id === entry.chapterId)
+    : undefined;
+
+  const openEntry = React.useCallback((id: string) => {
+    setEntryId(id);
+    setLayer("book");
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
+
+  const go = (id?: string) => {
+    if (!id) return;
+    openEntry(id);
+  };
 
   /* Прогресс чтения */
   React.useEffect(() => {
@@ -41,37 +66,36 @@ export function ReaderApp({ book }: { book: BookData }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* Scroll-spy: подсветка текущего раздела в оглавлении */
+  /* Переключение записей стрелками клавиатуры */
   React.useEffect(() => {
-    const els = chapter.sections
-      .map((s) => document.getElementById(s.id))
-      .filter((el): el is HTMLElement => Boolean(el));
-    if (els.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) setActiveSection(entry.target.id);
-        }
-      },
-      { rootMargin: "-25% 0px -65% 0px", threshold: 0 },
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [chapter]);
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+      if (e.key === "ArrowLeft") go(prevEntry?.id);
+      if (e.key === "ArrowRight") go(nextEntry?.id);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prevEntry, nextEntry]);
 
   const activeLayer = LAYERS.find((l) => l.id === layer)!;
+  const pagesLabel =
+    entry.pageEnd > entry.page ? `стр. ${entry.page}–${entry.pageEnd} издания` : `стр. ${entry.page} издания`;
 
   return (
     <SidebarProvider>
-      <AppSidebar book={book} activeSection={activeSection} />
+      <AppSidebar book={book} activeEntryId={entry.id} onSelectEntry={openEntry} />
 
       <SidebarInset className="paper-bg flex flex-col min-h-svh">
         {/* Шапка */}
         <header className="sticky top-0 z-30 relative flex h-14 flex-none items-center gap-2 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 px-3 md:px-4">
           <SidebarTrigger aria-label="Показать или скрыть оглавление" />
           <Separator orientation="vertical" className="h-5" />
-          <span className="hidden md:block text-sm font-bold truncate max-w-[280px]">
-            {book.meta.titleRu} <span className="text-muted-foreground font-normal">·</span> {chapter.title}
+          <span className="hidden md:block text-sm font-bold truncate max-w-[300px]">
+            {book.meta.titleRu}{" "}
+            <span className="text-muted-foreground font-normal">
+              · {entry.partNum}. {entry.partLabel}
+            </span>
           </span>
 
           {/* Переключатель слоёв */}
@@ -107,79 +131,110 @@ export function ReaderApp({ book }: { book: BookData }) {
 
         {/* Контент */}
         <main className="flex-1 w-full">
-          <div className="mx-auto max-w-5xl px-4 md:px-8 pt-10 md:pt-14 pb-16">
-            {/* Шапка главы */}
-            <header className="text-center mb-10 md:mb-14">
-              <span className="inline-grid place-items-center w-11 h-11 rounded-2xl bg-primary/15 text-primary mb-4">
-                <Ornament className="w-6 h-6" />
-              </span>
-              <p className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full border bg-card/70 px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">
-                {book.meta.authorRu}
-                <span className="text-foreground/50 normal-case tracking-normal">·</span>
-                книга «{book.meta.titleRu}»
-                <span className="font-arabic text-[15px] normal-case tracking-normal text-primary" dir="rtl" lang="ar">
-                  {book.meta.titleAr}
+          <div className="mx-auto max-w-[44rem] px-4 md:px-8 pt-10 md:pt-14 pb-16">
+            {/* Шапка записи */}
+            <header className="mb-9 md:mb-11">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                <span className="text-primary">
+                  {entry.partNum}. {entry.partLabel}
                 </span>
-              </p>
-              <h1 className="book-serif text-[40px] md:text-[56px] font-bold leading-[1.1] mt-4 tracking-[0.01em]">
-                Золотая <em className="not-italic text-primary">середина</em>
+                <span aria-hidden="true">·</span>
+                <span>{pagesLabel}</span>
+                {chapter ? (
+                  <span className="rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide normal-case">
+                    разбор готов
+                  </span>
+                ) : null}
+              </div>
+              <h1 className="book-serif text-[28px] md:text-[36px] font-bold leading-[1.18] mt-3">
+                {entry.title}
               </h1>
-              <p className="text-[15px] md:text-base text-muted-foreground max-w-2xl mx-auto mt-4 leading-relaxed">
-                {chapter.subtitle}
-              </p>
-
-              {/* Легенда слоёв */}
-              <div className="flex flex-wrap justify-center gap-2 mt-6" role="list" aria-label="Легенда слоёв">
-                {LAYERS.map((l) => {
-                  const Icon = l.icon;
-                  return (
-                    <span
-                      key={l.id}
-                      role="listitem"
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                        layer === l.id
-                          ? "bg-primary/12 border-primary/40 text-primary"
-                          : "bg-card/60 text-muted-foreground"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-                      {l.label} — {l.hint}
-                    </span>
-                  );
-                })}
-                <span className="inline-flex items-center gap-1.5 rounded-full border-dashed border-accent-foreground/50 bg-accent/60 px-3 py-1.5 text-xs font-semibold text-accent-foreground">
-                  дополнения помечены отдельно
+              <div className="mt-3 flex items-center gap-2 text-[13px] text-muted-foreground">
+                <Ornament className="w-4 h-4 text-primary/70" aria-hidden="true" />
+                <span>
+                  {book.meta.authorRu} · «{book.meta.titleRu}»{" "}
+                  <span className="font-arabic text-[14px] text-primary/90" dir="rtl" lang="ar">
+                    {book.meta.titleAr}
+                  </span>
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-4 max-w-xl mx-auto leading-relaxed">
-                Один текст — три слоя восприятия. В любом слое визуальный блок можно развернуть в
-                текст книги через «Свериться с книгой». Активный слой: «{activeLayer.label}».
+              <p className="text-xs text-muted-foreground/80 mt-2">
+                Активный слой: «{activeLayer.label}» — {activeLayer.hint}. Листать записи: ← / →.
               </p>
             </header>
 
-            {/* Разделы */}
-            {chapter.sections.map((s) => (
-              <SectionView key={s.id} section={s} layer={layer} terms={terms} onSwitchLayer={setLayer} />
-            ))}
+            {/* Тело по слоям */}
+            {layer === "book" ? (
+              <article aria-label="Текст книги">
+                <BookTextView entry={entry} />
+              </article>
+            ) : chapter ? (
+              <div aria-label={layer === "razbor" ? "Разбор записи" : "Атлас записи"}>
+                {chapter.sections.map((s) => (
+                  <SectionView key={s.id} section={s} layer={layer} terms={terms} />
+                ))}
+              </div>
+            ) : (
+              <EntryPlaceholder layer={layer} onSwitchLayer={setLayer} />
+            )}
+
+            {/* Навигация по записям */}
+            <nav className="mt-12 pt-6 border-t flex items-stretch gap-3" aria-label="Навигация по записям книги">
+              <button
+                type="button"
+                onClick={() => go(prevEntry?.id)}
+                disabled={!prevEntry}
+                className="group flex-1 min-w-0 flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left transition-colors hover:bg-muted/60 disabled:opacity-40 disabled:pointer-events-none"
+                aria-label={prevEntry ? `Предыдущая запись: ${prevEntry.title}` : "Предыдущей записи нет"}
+              >
+                <ChevronLeft className="flex-none w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="block text-[10px] uppercase tracking-[0.12em] font-bold text-muted-foreground">
+                    Предыдущая
+                  </span>
+                  <span className="block truncate text-[13px] font-semibold mt-0.5">
+                    {prevEntry ? prevEntry.title : "—"}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => go(nextEntry?.id)}
+                disabled={!nextEntry}
+                className="group flex-1 min-w-0 flex items-center gap-2.5 rounded-xl border px-3.5 py-3 text-right transition-colors hover:bg-muted/60 disabled:opacity-40 disabled:pointer-events-none"
+                aria-label={nextEntry ? `Следующая запись: ${nextEntry.title}` : "Следующей записи нет"}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] uppercase tracking-[0.12em] font-bold text-muted-foreground">
+                    Следующая
+                  </span>
+                  <span className="block truncate text-[13px] font-semibold mt-0.5">
+                    {nextEntry ? nextEntry.title : "—"}
+                  </span>
+                </span>
+                <ChevronRight className="flex-none w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden="true" />
+              </button>
+            </nav>
           </div>
         </main>
 
         {/* Подвал */}
         <footer className="mt-auto border-t bg-card/40">
-          <div className="mx-auto max-w-5xl px-4 md:px-8 py-8 text-center">
+          <div className="mx-auto max-w-[44rem] px-4 md:px-8 py-8 text-center">
             <span className="inline-grid place-items-center w-9 h-9 rounded-xl bg-primary/15 text-primary mb-3">
               <Ornament className="w-5 h-5" />
             </span>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xl mx-auto">
-              По мотивам книги Ибн Каййима аль-Джаузиййи «аль-Фаваид»{" "}
+              Ибн Каййим аль-Джаузиййа, «аль-Фаваид»{" "}
               <span className="font-arabic text-[14px] text-primary" dir="rtl" lang="ar">
                 الفوائد
-              </span>
-              . Слой «Книга» — адаптированный пересказ составителя, не цитаты; дополнения помечены;
-              примеры поведения — иллюстративные.
+              </span>{" "}
+              · слой «Книга» — текст русского издания (М.: Умма, 2013), сноски
+              сохранены; разбор и атлас — работа составителя, дополнения помечены
+              пунктирной рамкой.
             </p>
             <p className="text-[11px] text-muted-foreground/70 mt-2">
-              Концепция: смысловые блоки × три слоя восприятия · MVP
+              Один текст — три слоя восприятия · текст издания по 136 записям оглавления
             </p>
           </div>
         </footer>

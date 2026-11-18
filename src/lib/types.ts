@@ -153,6 +153,31 @@ export interface BookMeta {
   authorNote: string;
 }
 
+/**
+ * Абзац слоя «Книга» — текст издания (Умма, 2013).
+ * Строка — обычный абзац; {{n}} — маркер сноски.
+ * Объекты — стихотворная цитата (по строкам) или центрированный текст (басмала).
+ */
+export type BookPara = string | { verse: string[] } | { center: string };
+
+/** Запись книги с полным текстом издания (генерируется scripts/extract_book.py). */
+export interface BookTextEntry {
+  id: string;
+  marker: string;
+  title: string;
+  /** Первая страница издания. */
+  page: number;
+  /** Последняя страница издания. */
+  pageEnd: number;
+  partNum: string;
+  partLabel: string;
+  /** Ссылка на готовую главу разбора, если есть. */
+  chapterId: string | null;
+  paragraphs: BookPara[];
+  /** Сноски издания: сквозная нумерация. */
+  footnotes: { n: number; text: string }[];
+}
+
 export interface BookData {
   meta: BookMeta;
   /** Словарь терминов для бейджей [[term:id]]. */
