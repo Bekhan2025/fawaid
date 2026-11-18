@@ -77,7 +77,7 @@ BookData
 - **Tailwind CSS 4**, **shadcn/ui**, Radix Primitives (Tabs, Popover, Sidebar…)
 - Шрифты: Manrope (интерфейс), Playfair Display (заголовки книги), Amiri (арабский)
 - Пакетный менеджер и рантайм — **Bun**
-- Контент — статические TS/JSON без БД (Prisma в репозитории scaffolding-заготовка)
+- Контент — статические TS/JSON, без базы данных и внешних сервисов
 
 ## Команды
 

@@ -37,7 +37,6 @@
 | `src/app/globals.css` | Дизайн-система: палитра, k0–k4, `addition-box`, шрифтовые классы | Да |
 | `scripts/extract_book.py`, `scripts/parse_toc.py` | Извлечение контента из `upload/ru_fawaid.pdf` | Да (это источник правок контента) |
 | `upload/ru_fawaid.pdf` | PDF издания Умма, 2013 — исходник всего текста | Только чтение |
-| `src/app/api/route.ts`, `src/lib/db.ts`, `prisma/` | Scaffolding-заготовки, читалкой не используются | Не трогать без нужды |
 
 ## 3. Модель данных — минимум, без которого можно сломать всё
 
