@@ -1,6 +1,5 @@
-import { ReaderApp } from "@/components/reader/reader-app";
-import { BOOK } from "@/content/book";
+import { BookApp } from "@/components/reader/book-app";
 
 export default function Home() {
-  return <ReaderApp book={BOOK} />;
+  return <BookApp />;
 }

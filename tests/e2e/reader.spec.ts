@@ -59,6 +59,8 @@ test("direct links, history, scroll resume and keyboard tabs", async ({
     )
     .toBeGreaterThan(0.4);
   await page.goto("./");
+  await expect(page.getByRole("heading", { name: "АЛЬ-ФАВАИД", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Продолжить чтение" }).click();
   await expect(page).toHaveURL(/entry=e310/);
 });
 

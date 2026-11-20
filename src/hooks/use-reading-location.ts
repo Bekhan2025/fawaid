@@ -57,6 +57,14 @@ function persist(value: Location) {
   } catch {}
 }
 
+export function readSavedReadingLocation(): Location | null {
+  try {
+    return parse(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null"));
+  } catch {
+    return null;
+  }
+}
+
 export function useReadingLocation() {
   const [location, setLocation] = React.useState<Location>(DEFAULT);
   const [ready, setReady] = React.useState(false);
@@ -66,10 +74,7 @@ export function useReadingLocation() {
   React.useEffect(() => {
     const previousRestoration = window.history.scrollRestoration;
     window.history.scrollRestoration = "manual";
-    let saved: Location | null = null;
-    try {
-      saved = parse(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null"));
-    } catch {}
+    const saved = readSavedReadingLocation();
     // A shared URL selects the entry/layer; restore progress only for the same target.
     const explicit = fromUrl();
     const initial = explicit

@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Compass,
   ListTree,
+  Home,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -149,6 +150,14 @@ export function ReaderApp({ book }: { book: BookData }) {
         {/* Шапка */}
         <header className="sticky top-0 z-30 relative flex h-14 flex-none items-center gap-2 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70 px-3 md:px-4">
           <SidebarTrigger aria-label="Показать или скрыть оглавление" />
+          <a
+            href={`${process.env.NEXT_PUBLIC_BASE_PATH || ""}/`}
+            aria-label="На главную"
+            title="На главную"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <Home className="size-4" aria-hidden="true" />
+          </a>
           <Separator orientation="vertical" className="h-5" />
           <span className="hidden xl:block min-w-0 text-sm font-bold truncate max-w-[300px]">
             {book.meta.titleRu}{" "}
