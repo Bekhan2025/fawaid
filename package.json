@@ -6,7 +6,18 @@
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "validate:content": "bun scripts/validate-content.ts",
+    "check": "bun run lint && bun run typecheck && bun run validate:content && bun run test:content",
+    "content:generate": "python3 scripts/parse_toc.py && python3 scripts/extract_book.py && bun run validate:content",
+    "test:content": "bun test scripts/validate-content.test.ts scripts/book-search.test.ts scripts/layer-availability.test.ts",
+    "test:e2e": "playwright test",
+    "bundle:report": "bun scripts/bundle-report.ts",
+    "release:check": "bun run check && bun run build && bun run bundle:report && bun run test:e2e",
+    "build:pages": "STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=/fawaid next build",
+    "preview:pages": "NEXT_PUBLIC_BASE_PATH=/fawaid bun scripts/serve-export.ts",
+    "test:pages": "STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=/fawaid playwright test"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",
@@ -26,6 +37,7 @@
     "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",

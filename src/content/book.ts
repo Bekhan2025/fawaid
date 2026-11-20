@@ -1,4 +1,13 @@
+import { GUIDANCE_CHAPTER } from "@/content/chapters/ch8";
+import { INCREASE_CHAPTER } from "@/content/chapters/ch7";
+import { FATIHA_CHAPTER } from "@/content/chapters/ch6";
+import { TRUTHFULNESS_CHAPTER } from "@/content/chapters/ch5";
+import { QURAN_BENEFIT_CHAPTER } from "@/content/chapters/ch4";
+import { TRUST_CHAPTER } from "@/content/chapters/ch3";
+import chapterLinks from "./chapter-links.json";
+import { applyChapterLinks } from "@/lib/chapter-links";
 import type { BookData, BookTextEntry } from "@/lib/types";
+import { PASSION_CHAPTER } from "@/content/chapters/ch2";
 import { TOC_PARTS } from "@/content/toc";
 import p0 from "@/content/book-text/p0.json";
 import p1 from "@/content/book-text/p1.json";
@@ -20,22 +29,14 @@ import p11 from "@/content/book-text/p11.json";
  * Навигация по книге — TOC_PARTS (оглавление издания, 136 записей).
  * Слой «Книга» — полный текст издания (BOOK_TEXT, сгенерирован
  * scripts/extract_book.py из PDF издания).
- * Слой «Разбор»/«Атлас» пока подготовлены для одной записи (e310,
- * «Золотая середина») — главы связаны с записями через chapterId;
+ * Слой «Разбор»/«Атлас» подготовлены для e310 и e309 —
+ * главы связаны с записями через chapterId;
  * дополнения составителя помечены additionOnly и бейджами.
  */
 
-/** Тексты издания по записям оглавления. */
-export const BOOK_TEXT: Record<string, BookTextEntry> = Object.fromEntries(
-  [
-    p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11,
-  ].flat().map((e) => [e.id, e as BookTextEntry]),
-);
-
-/** Все записи книги в порядке оглавления (для навигации «вперёд/назад»). */
-export const BOOK_ENTRIES_ORDERED: BookTextEntry[] = [
-  p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11,
-].flat() as BookTextEntry[];
+const assembled = applyChapterLinks(TOC_PARTS, [p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11].flat() as BookTextEntry[], chapterLinks);
+export const BOOK_ENTRIES_ORDERED = assembled.texts;
+export const BOOK_TEXT: Record<string, BookTextEntry> = Object.fromEntries(assembled.texts.map(e=>[e.id,e]));
 
 export const BOOK: BookData = {
   meta: {
@@ -106,9 +107,16 @@ export const BOOK: BookData = {
   ],
 
   /** Навигация по книге: оглавление издания, сгруппированное в части. */
-  parts: TOC_PARTS,
+  parts: assembled.parts,
 
   chapters: [
+    GUIDANCE_CHAPTER,
+    INCREASE_CHAPTER,
+    FATIHA_CHAPTER,
+    TRUTHFULNESS_CHAPTER,
+    QURAN_BENEFIT_CHAPTER,
+    TRUST_CHAPTER,
+    PASSION_CHAPTER,
     {
       id: "ch1",
       num: "01",

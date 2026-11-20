@@ -16,7 +16,11 @@
 - маркеры сносок в тексте: цифры кеглем <=9.8 вне зон -> {{n}}
 - орнамент ﷺ: image-блоки малы, вставлены в межсловный промежуток строки
 """
-import fitz
+try:
+    import fitz
+except ImportError:
+    raise SystemExit("Нужен PyMuPDF: python3 -m pip install -r scripts/requirements.txt")
+from content_paths import ROOT, PDF, TOC, OUT_DIR, chapter_links, require_pdf
 import json
 import re
 import sys
@@ -24,9 +28,6 @@ import unicodedata
 from collections import Counter
 from difflib import SequenceMatcher
 
-PDF = "/home/z/my-project/upload/ru_fawaid.pdf"
-TOC = "/home/z/my-project/src/content/toc.ts"
-OUT_DIR = "/home/z/my-project/src/content/book-text"
 FIRST_PAGE, LAST_PAGE = 4, 471
 
 MARKERS = {
@@ -111,6 +112,7 @@ def join_lines(a: str, b: str) -> str:
 def load_toc():
     src = open(TOC, encoding="utf-8").read()
     entries = []
+    links = chapter_links()
     for m in re.finditer(
         r'\{\s*id:\s*"(\w+)",\s*page:\s*(\d+),\s*marker:\s*"([^"]+)",\s*'
         r'title:\s*"((?:[^"\\]|\\.)*)"(?:,\s*chapterId:\s*"(\w+)")?\s*\}',
@@ -120,8 +122,11 @@ def load_toc():
         entries.append({
             "id": m.group(1), "page": int(m.group(2)),
             "marker": m.group(3), "title": title,
-            "chapterId": m.group(5),
+            "chapterId": links.get(m.group(1)),
         })
+    unknown = set(links) - {e["id"] for e in entries}
+    if unknown:
+        sys.exit(f"Неизвестные записи в chapter-links.json: {sorted(unknown)}")
     part_of = {}
     for pm in re.finditer(r'id:\s*"(p\d+)",\s*num:\s*"([^"]+)",\s*label:\s*"([^"]+)"', src):
         part_of[pm.group(1)] = (pm.group(2), pm.group(3))
@@ -432,7 +437,7 @@ DC_JOIN_WORDS = set()
 
 def load_dc_exceptions():
     try:
-        for w in json.load(open("/home/z/my-project/scripts/dc_join_words.json", encoding="utf-8")):
+        for w in json.load(open(ROOT / "scripts/dc_join_words.json", encoding="utf-8")):
             DC_JOIN_WORDS.add(w)
     except FileNotFoundError:
         pass
@@ -660,6 +665,7 @@ def assemble(toc_entries, boundaries, paras, notes, part_of):
 # ---------------------------------------------------------------- главный пайплайн
 
 def main():
+    require_pdf()
     load_dc_exceptions()
     toc_entries, part_of = load_toc()
     # привязка записи к части

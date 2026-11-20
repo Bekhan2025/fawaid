@@ -94,8 +94,6 @@
   --sc-org: #c2691a;
   --sc-grn: #1e8449;
 
-  /* Бумажная текстура: геометрический орнамент */
-  --paper-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='56'%20height='56'%3E%3Cg%20fill='none'%20stroke='%231e8449'%20stroke-opacity='.07'%3E%3Crect%20x='17'%20y='17'%20width='22'%20height='22'/%3E%3Crect%20x='17'%20y='17'%20width='22'%20height='22'%20transform='rotate(45%2028%2028)'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 .dark {
@@ -136,7 +134,6 @@
   --sc-org: #d1913f;
   --sc-grn: #5cb98a;
 
-  --paper-pattern: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='56'%20height='56'%3E%3Cg%20fill='none'%20stroke='%23e5bd7d'%20stroke-opacity='.045'%3E%3Crect%20x='17'%20y='17'%20width='22'%20height='22'/%3E%3Crect%20x='17'%20y='17'%20width='22'%20height='22'%20transform='rotate(45%2028%2028)'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 @layer base {
@@ -158,10 +155,9 @@
 
 /* ---------- Утилиты читалки ---------- */
 
-/* Бумажный фон с орнаментом */
+/* Однотонный фон читалки */
 .paper-bg {
   background-color: var(--background);
-  background-image: var(--paper-pattern);
 }
 
 /* Книжная типографика слоя «Книга» */
@@ -204,7 +200,7 @@
   text-align: left;
   font-style: italic;
 }
-.book-page .bp-verse span {
+.book-page .bp-verse > span {
   display: block;
 }
 
@@ -330,3 +326,14 @@
   body { background: #fff; }
   .paper-bg { background: #fff; }
 }
+
+.book-fnref { cursor: pointer; }
+.book-fnref:focus-visible, .book-paragraph:focus-visible, .book-footnotes li:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+.book-paragraph:target { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.paragraph-bookmark { opacity: 0.45; }
+.book-paragraph:hover .paragraph-bookmark, .paragraph-bookmark:focus-visible,
+.paragraph-bookmark[aria-pressed="true"] { opacity: 1; }
+@media print { .paragraph-bookmark { display: none; } }

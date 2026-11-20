@@ -13,7 +13,19 @@
 export type LayerId = "book" | "razbor" | "atlas";
 
 /** Виды визуальных примитивов слоя «Атлас». */
-export type AtlasKind = "mini" | "spectrum" | "examples" | "steps";
+export type AtlasKind =
+  | "mini"
+  | "spectrum"
+  | "examples"
+  | "steps"
+  | "cards"
+  | "chain"
+  | "cases"
+  | "conditions"
+  | "comparison"
+  | "branching"
+  | "correspondence"
+  | "relations";
 
 /** Цветовые «классы» точек шкалы: k2 — середина, k1/k3 — умеренные, k0/k4 — крайности. */
 export type ScaleKind = "k0" | "k1" | "k2" | "k3" | "k4";
@@ -87,6 +99,8 @@ export interface Section {
   lead?: string;
   /** Раздел целиком является дополнением составителя. */
   additionOnly?: boolean;
+  /** Дословные опорные фрагменты из неизменяемого текста; доступны в обоих слоях. */
+  evidence?: { label: string; entryId: string; paragraphs: number[] }[];
   /** Слой «Книга»: адаптированный пересказ. */
   book?: {
     label?: string;
@@ -100,10 +114,49 @@ export interface Section {
   };
   /** Слой «Атлас»: визуальный примитив. */
   atlas?:
+    | {kind:"relations"; pairs:{id:string;left:string;right:string;relation:string}[]; caption?:string}
+    | { kind: "correspondence"; rows: {id:string; reference:string; concept:string; text:string}[]; caption?:string }
+    | {
+        kind: "branching";
+        root: { title: string; text: string };
+        branches: {
+          id: string;
+          title: string;
+          nodes: { id: string; title: string; text: string }[];
+        }[];
+        caption?: string;
+      }
+    | {
+        kind: "conditions";
+        items: { id: string; role: string; title: string; text: string }[];
+        result: string;
+        caption?: string;
+      }
+    | {
+        kind: "comparison";
+        columns: [string, string];
+        rows: { id: string; aspect: string; left: string; right: string }[];
+        caption?: string;
+      }
+    | {
+        kind: "cases";
+        question: string;
+        cases: {
+          id: string;
+          condition: string;
+          outcomes: { condition?: string; text: string }[];
+        }[];
+        caption?: string;
+      }
     | { kind: "mini"; markers: MiniMarker[]; caption?: string }
     | { kind: "spectrum"; rows: SpectrumRow[]; caption?: string }
     | { kind: "examples"; cards: ExampleCard[]; caption?: string }
-    | { kind: "steps"; steps: StepCard[]; caption?: string };
+    | { kind: "steps"; steps: StepCard[]; caption?: string }
+    | {
+        kind: "cards" | "chain";
+        cards: { id: string; title: string; text: string }[];
+        caption?: string;
+      };
 }
 
 export interface Chapter {

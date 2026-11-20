@@ -35,9 +35,6 @@ export const metadata: Metadata = {
   title: "аль-Фаваид · многослойная читалка",
   description:
     "Интерактивное чтение книги Ибн Каййима аль-Джаузиййи «аль-Фаваид»: один текст — три слоя восприятия. Книга, разбор и атлас с таблицами, шкалами и примерами из XXI века.",
-  icons: {
-    icon: "/logo.svg",
-  },
 };
 
 export default function RootLayout({

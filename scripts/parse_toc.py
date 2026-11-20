@@ -11,16 +11,22 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+import tempfile
+import shutil
+from content_paths import PDF, TOC, chapter_links, require_pdf
 
-TXT = Path("/tmp/fawaid.txt")
-PDF = Path("/home/z/my-project/upload/ru_fawaid.pdf")
-OUT_TS = Path("/home/z/my-project/src/content/toc.ts")
-OUT_JSON = Path("/tmp/toc.json")
+require_pdf()
+if not shutil.which("pdftotext"):
+    sys.exit("Не найден pdftotext. Установите poppler-utils.")
+OUT_TS = TOC
+OUT_JSON = Path(tempfile.gettempdir()) / "fawaid-toc.json"
+# Always extract the selected PDF; never reuse a stale global text cache.
+with tempfile.TemporaryDirectory(prefix="fawaid-toc-") as tmp:
+    txt = Path(tmp) / "book.txt"
+    subprocess.run(["pdftotext", "-layout", str(PDF), str(txt)], check=True)
+    source_text = txt.read_text(encoding="utf-8")
 
-if not TXT.exists():
-    subprocess.run(["pdftotext", "-layout", str(PDF), str(TXT)], check=True)
-
-lines = TXT.read_text(encoding="utf-8").splitlines()
+lines = source_text.splitlines()
 
 # --- 1. Найти начало оглавления (первая строка-«Оглавление» без номера страницы)
 start = None
@@ -138,7 +144,10 @@ PARTS = [
     ("p10", "Связь раба с Господом",      [96, 111, 115, 190, 349, 387, 421, 434, 437, 439, 443, 458, 459, 460, 463, 465]),
     ("p11", "Истории и изречения",        [70, 80, 90, 98, 131, 134, 137, 143, 154, 161, 163, 169, 324, 371, 383, 405, 429, 445, 452]),
 ]
-READY_PAGE = 310  # «У нравственности есть предел…» = глава «Золотая середина»
+CHAPTER_LINKS = chapter_links()
+unknown_links = set(CHAPTER_LINKS) - {"e" + str(e["page"]) for e in entries}
+if unknown_links:
+    sys.exit(f"Неизвестные записи в chapter-links.json: {sorted(unknown_links)}")
 
 page_map = {}
 for pid, _label, pages in PARTS:
@@ -184,7 +193,8 @@ for idx, (pid, label, _pages) in enumerate(PARTS):
     for e in entries:
         if page_map[e["page"]] != pid:
             continue
-        chapter = ', chapterId: "ch1"' if e["page"] == READY_PAGE else ""
+        chapter_id = CHAPTER_LINKS.get("e" + str(e["page"]))
+        chapter = f", chapterId: {ts(chapter_id)}" if chapter_id else ""
         out.append(
             f"      {{ id: {ts('e' + str(e['page']))}, page: {e['page']}, "
             f"marker: {ts(e['marker'])}, title: {ts(e['title'])}{chapter} }},"

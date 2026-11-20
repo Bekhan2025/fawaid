@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import {layerAvailability,layerStatusLabel} from "@/lib/layer-availability";
+import {LAYER_OMISSIONS} from "@/content/layer-omissions";
 import { BookOpenText, ChevronRight } from "lucide-react";
 import {
   Sidebar,
@@ -15,24 +17,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import type { BookData, BookEntry } from "@/lib/types";
-
-/** Орнамент «геометрический ромб» — системный знак дизайн-системы. */
-export function Ornament({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="7" y="7" width="10" height="10" />
-      <rect x="7" y="7" width="10" height="10" transform="rotate(45 12 12)" />
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
 
 /** Цвет бейджа по маркеру автора («Раздел», «Польза», «Правило»…). */
 const MARKER_CLASS: Record<string, string> = {
@@ -124,7 +108,10 @@ export function AppSidebar({
 
   const renderEntry = (entry: BookEntry) => {
     const active = entry.id === activeEntryId;
-    const hasChapter = Boolean(entry.chapterId);
+    const chapter = book.chapters.find(chapter=>chapter.id===entry.chapterId);
+    const razbor = layerAvailability("razbor",chapter,LAYER_OMISSIONS[entry.id]?.razbor);
+    const atlas = layerAvailability("atlas",chapter,LAYER_OMISSIONS[entry.id]?.atlas);
+    const hasChapter = razbor.status === "ready" || atlas.status === "ready";
 
     return (
       <SidebarMenuItem key={entry.id}>
@@ -133,7 +120,7 @@ export function AppSidebar({
           id={active ? `entry-btn-active` : undefined}
           onClick={() => select(entry.id)}
           aria-current={active ? "true" : undefined}
-          title={`${entry.marker}: ${entry.title} (с. ${entry.page})`}
+          title={`${entry.marker}: ${entry.title} (с. ${entry.page}) · ${layerStatusLabel("razbor",razbor)} · ${layerStatusLabel("atlas",atlas)}`}
           className={`flex w-full items-start gap-2 rounded-md px-2 py-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
             active
               ? "border border-primary/40 bg-primary/10"
@@ -165,7 +152,7 @@ export function AppSidebar({
               </span>
               {hasChapter ? (
                 <span className="rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
-                  разбор готов
+                  {razbor.status === "ready" ? "Разбор готов" : "Атлас готов"}
                 </span>
               ) : null}
             </span>
@@ -177,24 +164,8 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon">
-      {/* Книга */}
-      <SidebarHeader className="p-0 pb-1">
-        <div className="px-3 pt-3 pb-2 flex items-center gap-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <span className="flex-none w-9 h-9 grid place-items-center rounded-xl bg-primary/15 text-primary">
-            <Ornament className="w-5 h-5" />
-          </span>
-          <div className="group-data-[collapsible=icon]:hidden min-w-0">
-            <p className="font-serif font-bold text-[17px] leading-tight">
-              {book.meta.titleRu}
-            </p>
-            <p className="font-arabic text-lg leading-none text-primary mt-0.5" dir="rtl" lang="ar">
-              {book.meta.titleAr}
-            </p>
-          </div>
-        </div>
-        <p className="px-6 pb-2 text-xs text-muted-foreground leading-snug group-data-[collapsible=icon]:hidden">
-          {book.meta.authorRu} · {book.meta.authorNote}
-        </p>
+      <SidebarHeader className="px-6 pt-5 pb-3 group-data-[collapsible=icon]:hidden">
+        <h2 className="text-sm font-semibold">Оглавление</h2>
       </SidebarHeader>
 
       {/* Оглавление издания: части → записи */}
@@ -244,8 +215,7 @@ export function AppSidebar({
             части составлены для навигации.
           </p>
           <p className="text-[10.5px] text-muted-foreground leading-snug mt-1">
-            Разбор и атлас пока готовы для «Золотой середины» — остальные по
-            мере работы.
+            Подготовленные главы: {book.chapters.length}. Для отдельных записей атлас не предусмотрен.
           </p>
         </div>
       </SidebarFooter>
